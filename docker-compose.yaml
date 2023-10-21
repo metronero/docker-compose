@@ -1,0 +1,43 @@
+services:
+  monero-wallet-rpc:
+    image: ghcr.io/sethforprivacy/simple-monero-wallet-rpc:v0.18.3.1
+    command: --wallet-file wallet --password-file wallet.passwd --disable-rpc-login --rpc-bind-port=28081 --daemon-host=${MONERO_DAEMON_RPC_HOSTNAME} --daemon-port=${MONERO_DAEMON_RPC_PORT} --max-log-files=0 --max-log-file-size=0 --stagenet
+    volumes:
+      - ./data/wallet:/home/monero/wallet
+    restart: unless-stopped
+    ports:
+      - "28081:28081"
+
+  postgresql:
+    image: postgres:16-alpine
+    volumes:
+      - ./sql/initdb.sh:/docker-entrypoint-initdb.d/initdb.sh
+      - ./data/postgresql:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB=${POSTGRES_DATABASE}
+    restart: unless-stopped
+
+  moneropay:
+    image: registry.gitlab.com/moneropay/moneropay:v2
+    environment:
+      - RPC_ADDRESS=http://monero-wallet-rpc:28081/json_rpc
+      - POSTGRESQL=postgresql://${POSTGRES_USERNAME}:${POSTGRES_PASSWORD}@postgresql:5432/${POSTGRES_DATABASE}?sslmode=disable
+    depends_on:
+      - monero-wallet-rpc
+      - postgresql
+    restart: unless-stopped
+
+  backend:
+    build: backend
+    depends_on:
+      - postgresql
+      - moneropay
+    restart: unless-stopped
+
+  frontend:
+    build: frontend
+    depends_on:
+      - backend
+    restart: unless-stopped

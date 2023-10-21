@@ -1,0 +1,7 @@
+services:
+  moneropay:
+    ports:
+      - 127.0.0.1:5001:5000
+  frontend:
+    ports:
+      - 127.0.0.1:5002:5002
